@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { Employee } from '@/lib/types'
-import { formatCurrency } from '@/lib/utils-custom'
+import { formatCurrency, formatHourlyRate } from '@/lib/utils-custom'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plus, Edit2, Trash2, CheckCircle, Circle } from 'lucide-react'
@@ -160,7 +160,7 @@ export function EmployeesPage({ initialEmployees }: EmployeesPageProps) {
                     </td>
                     <td className="py-3 px-4 text-muted-foreground">{employee.phone}</td>
                     <td className="py-3 px-4 text-foreground font-semibold hidden md:table-cell">
-                      {formatCurrency(employee.hourlyRate)}/h
+                      {formatHourlyRate(employee.hourlyRate)}/h
                     </td>
                     <td className="py-3 px-4">
                       <button

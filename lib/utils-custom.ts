@@ -1,5 +1,13 @@
 import { CLOFI_PAYROLL_CURRENCY } from '@/lib/clofi/constants'
 
+const HOURLY_RATE_DECIMALS = 4
+
+/** Round hourly rate to 4 decimal places (payroll precision). */
+export function roundHourlyRate(value: number): number {
+  const factor = 10 ** HOURLY_RATE_DECIMALS
+  return Math.round(value * factor) / factor
+}
+
 /**
  * Format a number as USD currency (Clofi payroll).
  */
@@ -12,6 +20,19 @@ export function formatCurrency(
     currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  }).format(value)
+}
+
+/** Format hourly rate with up to 4 decimal places. */
+export function formatHourlyRate(
+  value: number,
+  currency: string = CLOFI_PAYROLL_CURRENCY,
+): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: HOURLY_RATE_DECIMALS,
   }).format(value)
 }
 
@@ -83,6 +104,37 @@ export function minutesToTimeString(minutes: number): string {
 export function isValidTimeFormat(timeStr: string): boolean {
   const regex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
   return regex.test(timeStr)
+}
+
+/** Parse HH:mm into hour/minute parts. */
+export function parseTimeHHmm(value: string): { hours: number; minutes: number } | null {
+  if (!isValidTimeFormat(value)) return null
+  const [hours, minutes] = value.split(':').map(Number)
+  return { hours, minutes }
+}
+
+/** Build HH:mm from hour and minute. */
+export function buildTimeHHmm(hours: number, minutes: number): string {
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+/** Current local time as HH:mm. */
+export function getCurrentTimeHHmm(): string {
+  const now = new Date()
+  return buildTimeHHmm(now.getHours(), now.getMinutes())
+}
+
+/** Human-readable 12h label for HH:mm (es-ES). */
+export function formatTimeLabel(value: string): string {
+  const parsed = parseTimeHHmm(value)
+  if (!parsed) return ''
+  const date = new Date()
+  date.setHours(parsed.hours, parsed.minutes, 0, 0)
+  return new Intl.DateTimeFormat('es-ES', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date)
 }
 
 /**

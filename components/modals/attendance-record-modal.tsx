@@ -7,9 +7,11 @@ import {
   calculateDailySalary,
   calculateHoursWorked,
   formatCurrency,
+  formatHourlyRate,
   isValidTimeFormat,
 } from '@/lib/utils-custom'
 import { X } from 'lucide-react'
+import { TimePicker } from '@/components/time-picker'
 
 interface AttendanceRecordModalProps {
   record: AttendanceRecord
@@ -39,6 +41,17 @@ export function AttendanceRecordModal({
     observations: record.observations || '',
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
+
+  const handleTimeChange = (name: 'entryTime' | 'exitTime', value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[name]
+        return next
+      })
+    }
+  }
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -115,7 +128,7 @@ export function AttendanceRecordModal({
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-card rounded-lg shadow-lg max-w-lg w-full border border-border max-h-[90vh] overflow-y-auto">
+      <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full border border-border max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-bold text-foreground">Editar Registro</h2>
           <button
@@ -129,69 +142,60 @@ export function AttendanceRecordModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Empleado *</label>
-            <select
-              name="employeeId"
-              value={formData.employeeId}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-            >
-              <option value="">Seleccionar empleado...</option>
-              {employees.map((emp) => (
-                <option key={emp.id} value={emp.id}>
-                  {emp.name} - {emp.position}
-                </option>
-              ))}
-            </select>
-            {errors.employeeId && (
-              <p className="text-red-600 text-xs mt-1">{errors.employeeId}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">Fecha</label>
-            <input
-              type="date"
-              name="date"
-              value={formData.date}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-            />
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Hora de Entrada *
-              </label>
-              <input
-                type="time"
-                name="entryTime"
-                value={formData.entryTime}
+              <label className="block text-sm font-medium text-foreground mb-1">Empleado *</label>
+              <select
+                name="employeeId"
+                value={formData.employeeId}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              />
-              {errors.entryTime && (
-                <p className="text-red-600 text-xs mt-1">{errors.entryTime}</p>
+              >
+                <option value="">Seleccionar empleado...</option>
+                {employees.map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.name} - {emp.position}
+                  </option>
+                ))}
+              </select>
+              {errors.employeeId && (
+                <p className="text-red-600 text-xs mt-1">{errors.employeeId}</p>
               )}
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Hora de Salida
-              </label>
+              <label className="block text-sm font-medium text-foreground mb-1">Fecha</label>
               <input
-                type="time"
-                name="exitTime"
-                value={formData.exitTime}
+                type="date"
+                name="date"
+                value={formData.date}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
               />
-              {errors.exitTime && (
-                <p className="text-red-600 text-xs mt-1">{errors.exitTime}</p>
-              )}
             </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-stretch">
+            <TimePicker
+              id="edit-entryTime"
+              label="Hora de Entrada"
+              value={formData.entryTime}
+              onChange={(value) => handleTimeChange('entryTime', value)}
+              error={errors.entryTime}
+              required
+              presetVariant="entry"
+              className="h-full"
+            />
+
+            <TimePicker
+              id="edit-exitTime"
+              label="Hora de Salida"
+              value={formData.exitTime}
+              onChange={(value) => handleTimeChange('exitTime', value)}
+              error={errors.exitTime}
+              presetVariant="exit"
+              className="h-full"
+            />
           </div>
 
           <div>
@@ -217,7 +221,7 @@ export function AttendanceRecordModal({
               <div>
                 <p className="text-muted-foreground">Tarifa:</p>
                 <p className="font-bold text-foreground">
-                  {formatCurrency(previewEmployee?.hourlyRate || 0)}/h
+                  {formatHourlyRate(previewEmployee?.hourlyRate || 0)}/h
                 </p>
               </div>
               <div>

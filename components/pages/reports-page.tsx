@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import { AttendanceRecord, Employee, PayrollReport } from '@/lib/types'
-import { formatCurrency, formatDateShort } from '@/lib/utils-custom'
+import { formatCurrency, formatDateShort, formatHourlyRate } from '@/lib/utils-custom'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BarChart3, Download, Printer } from 'lucide-react'
@@ -73,7 +73,7 @@ export function ReportsPage({ employees, attendanceRecords }: ReportsPageProps) 
     csvContent += 'Reporte de Nómina\n'
     csvContent += `Empleado:,${report.employeeName}\n`
     csvContent += `Período:,${formatDateShort(report.startDate)} a ${formatDateShort(report.endDate)}\n`
-    csvContent += `Tarifa por Hora:,${formatCurrency(report.hourlyRate)}\n\n`
+    csvContent += `Tarifa por Hora:,${formatHourlyRate(report.hourlyRate)}\n\n`
 
     csvContent += 'Fecha,Entrada,Salida,Horas,Salario\n'
     report.records.forEach((record) => {
@@ -188,7 +188,7 @@ export function ReportsPage({ employees, attendanceRecords }: ReportsPageProps) 
               <div>
                 <p className="text-xs text-muted-foreground">Tarifa/Hora</p>
                 <p className="text-2xl font-bold text-foreground">
-                  {formatCurrency(report.hourlyRate)}
+                  {formatHourlyRate(report.hourlyRate)}
                 </p>
               </div>
               <div>

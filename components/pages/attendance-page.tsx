@@ -9,11 +9,13 @@ import {
   calculateDailySalary,
   isValidTimeFormat,
   formatCurrency,
+  formatHourlyRate,
 } from '@/lib/utils-custom'
 import { Clock, Edit2, Trash2 } from 'lucide-react'
 import { saveAttendanceRecordAction, deleteAttendanceRecordAction } from '@/app/actions/clofi'
 import { AttendanceRecordModal } from '@/components/modals/attendance-record-modal'
 import { DeleteConfirmModal } from '@/components/modals/delete-confirm-modal'
+import { TimePicker } from '@/components/time-picker'
 
 interface AttendancePageProps {
   initialEmployees: Employee[]
@@ -42,6 +44,17 @@ export function AttendancePage({
   const [isPending, startTransition] = useTransition()
 
   const activeEmployees = initialEmployees.filter((e) => e.status === 'active')
+
+  const handleTimeChange = (name: 'entryTime' | 'exitTime', value: string) => {
+    setFormData((prev) => ({ ...prev, [name]: value }))
+    if (errors[name]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev }
+        delete newErrors[name]
+        return newErrors
+      })
+    }
+  }
 
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
@@ -212,38 +225,30 @@ export function AttendancePage({
                 className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Hora de Entrada (HH:mm) *
-              </label>
-              <input
-                type="time"
-                name="entryTime"
-                value={formData.entryTime}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              />
-              {errors.entryTime && (
-                <p className="text-red-600 text-xs mt-1">{errors.entryTime}</p>
-              )}
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            <TimePicker
+              id="entryTime"
+              label="Hora de Entrada"
+              value={formData.entryTime}
+              onChange={(value) => handleTimeChange('entryTime', value)}
+              error={errors.entryTime}
+              required
+              presetVariant="entry"
+              className="h-full"
+            />
 
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Hora de Salida (HH:mm) *
-              </label>
-              <input
-                type="time"
-                name="exitTime"
-                value={formData.exitTime}
-                onChange={handleInputChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              />
-              {errors.exitTime && (
-                <p className="text-red-600 text-xs mt-1">{errors.exitTime}</p>
-              )}
-            </div>
+            <TimePicker
+              id="exitTime"
+              label="Hora de Salida"
+              value={formData.exitTime}
+              onChange={(value) => handleTimeChange('exitTime', value)}
+              error={errors.exitTime}
+              required
+              presetVariant="exit"
+              className="h-full"
+            />
           </div>
 
           <div>
@@ -275,7 +280,7 @@ export function AttendancePage({
                     <div>
                       <p className="text-muted-foreground">Tarifa:</p>
                       <p className="font-bold text-foreground">
-                        {formatCurrency(employee?.hourlyRate || 0)}/h
+                        {formatHourlyRate(employee?.hourlyRate || 0)}/h
                       </p>
                     </div>
                     <div>

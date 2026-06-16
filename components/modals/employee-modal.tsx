@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Employee } from '@/lib/types'
+import { roundHourlyRate } from '@/lib/utils-custom'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
 
@@ -9,6 +10,18 @@ interface EmployeeModalProps {
   employee: Employee | null
   onSave: (employee: Employee) => void
   onClose: () => void
+}
+
+function hourlyRateToInputValue(rate: number): string {
+  if (!rate) return ''
+  return String(roundHourlyRate(rate))
+}
+
+function parseHourlyRateInput(value: string): number {
+  if (!value.trim()) return 0
+  const parsed = Number.parseFloat(value)
+  if (Number.isNaN(parsed)) return 0
+  return roundHourlyRate(parsed)
 }
 
 export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps) {
@@ -25,18 +38,30 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
     }
   )
 
+  const [hourlyRateInput, setHourlyRateInput] = useState(() =>
+    hourlyRateToInputValue(employee?.hourlyRate ?? 0),
+  )
+
   const [errors, setErrors] = useState<Record<string, string>>({})
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
-    setFormData(prev => ({
-      ...prev,
-      [name]:
-        name === 'hourlyRate' ? parseFloat(value) || 0 : 
-        name === 'startDate' ? new Date(value) :
-        value,
-    }))
-    // Clear error for this field
+
+    if (name === 'hourlyRate') {
+      setHourlyRateInput(value)
+      setFormData(prev => ({
+        ...prev,
+        hourlyRate: parseHourlyRateInput(value),
+      }))
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]:
+          name === 'startDate' ? new Date(value) :
+          value,
+      }))
+    }
+
     if (errors[name]) {
       setErrors(prev => {
         const newErrors = { ...prev }
@@ -48,11 +73,12 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
+    const hourlyRate = parseHourlyRateInput(hourlyRateInput)
 
     if (!formData.name.trim()) newErrors.name = 'El nombre es requerido'
     if (!formData.position.trim()) newErrors.position = 'El cargo es requerido'
     if (!formData.phone.trim()) newErrors.phone = 'El teléfono es requerido'
-    if (formData.hourlyRate <= 0) newErrors.hourlyRate = 'La tarifa debe ser mayor a 0'
+    if (hourlyRate <= 0) newErrors.hourlyRate = 'La tarifa debe ser mayor a 0'
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
@@ -61,7 +87,10 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (validateForm()) {
-      onSave(formData)
+      onSave({
+        ...formData,
+        hourlyRate: parseHourlyRateInput(hourlyRateInput),
+      })
     }
   }
 
@@ -149,12 +178,12 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
             <input
               type="number"
               name="hourlyRate"
-              value={formData.hourlyRate}
+              value={hourlyRateInput}
               onChange={handleChange}
-              step="0.01"
+              step="0.0001"
               min="0"
               className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              placeholder="Ej: 25.00"
+              placeholder="Ej: 1.8765"
             />
             {errors.hourlyRate && (
               <p className="text-red-600 text-xs mt-1">{errors.hourlyRate}</p>
