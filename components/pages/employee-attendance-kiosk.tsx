@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useMemo, useState, useTransition } from 'react'
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react'
 import { AttendanceRecord, Employee } from '@/lib/types'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { SignaturePad, type SignaturePadHandle } from '@/components/signature-pad'
 import {
   calculateDailySalary,
   calculateHoursWorked,
 } from '@/lib/utils-custom'
-import { Clock, LogOut, LogIn, CheckCircle2, AlertCircle, Lock } from 'lucide-react'
+import { Clock, LogOut, LogIn, CheckCircle2, AlertCircle, User } from 'lucide-react'
 import { saveAttendanceRecordAction } from '@/app/actions/clofi'
 
 type KioskMode = 'check-in' | 'check-out' | 'done'
@@ -23,7 +24,7 @@ export function EmployeeAttendanceKiosk({
   initialRecords,
 }: EmployeeAttendanceKioskProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords)
-  const [pinInput, setPinInput] = useState('')
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
   const [employeeId, setEmployeeId] = useState<string | null>(null)
   const [kioskMode, setKioskMode] = useState<KioskMode>('check-in')
   const [message, setMessage] = useState('')
@@ -31,6 +32,8 @@ export function EmployeeAttendanceKiosk({
   const [currentTime, setCurrentTime] = useState('')
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null)
   const [isPending, startTransition] = useTransition()
+  const entrySignaturePadRef = useRef<SignaturePadHandle>(null)
+  const exitSignaturePadRef = useRef<SignaturePadHandle>(null)
 
   useEffect(() => {
     const updateTime = () => {
@@ -61,6 +64,14 @@ export function EmployeeAttendanceKiosk({
       .replace(/^\w/, (c) => c.toUpperCase())
   }, [])
 
+  const activeEmployees = useMemo(
+    () =>
+      employees
+        .filter((item) => item.status === 'active')
+        .sort((a, b) => a.name.localeCompare(b.name, 'es')),
+    [employees],
+  )
+
   const employee = useMemo(() => {
     if (!employeeId) return null
     return employees.find((item) => item.id === employeeId) ?? null
@@ -89,17 +100,23 @@ export function EmployeeAttendanceKiosk({
     }
   }, [employeeId, records])
 
-  const handleSearchEmployee = () => {
-    const query = pinInput.trim()
-    setPinInput('')
+  useEffect(() => {
+    entrySignaturePadRef.current?.clear()
+    exitSignaturePadRef.current?.clear()
+  }, [employeeId, kioskMode])
 
-    const found = employees.find(
-      (item) => item.phone === query || item.id === query,
-    )
+  const handleSelectEmployee = () => {
+    if (!selectedEmployeeId) {
+      setMessageType('error')
+      setMessage('Selecciona un empleado')
+      return
+    }
+
+    const found = employees.find((item) => item.id === selectedEmployeeId)
 
     if (!found) {
       setMessageType('error')
-      setMessage('PIN o empleado no encontrado')
+      setMessage('Empleado no encontrado')
       setEmployeeId(null)
       return
     }
@@ -112,8 +129,7 @@ export function EmployeeAttendanceKiosk({
     }
 
     setEmployeeId(found.id)
-    setMessageType('success')
-    setMessage('Empleado validado correctamente')
+    setMessage('')
   }
 
   const getTimeString = () =>
@@ -124,6 +140,12 @@ export function EmployeeAttendanceKiosk({
 
   const handleMarkEntry = () => {
     if (!employee) return
+
+    if (entrySignaturePadRef.current?.isEmpty()) {
+      setMessageType('error')
+      setMessage('Debes firmar antes de marcar entrada')
+      return
+    }
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
@@ -141,6 +163,7 @@ export function EmployeeAttendanceKiosk({
     }
 
     const timeStr = getTimeString()
+    const entrySignature = entrySignaturePadRef.current?.toDataURL('image/png') ?? ''
     const newRecord: AttendanceRecord = {
       id: crypto.randomUUID(),
       employeeId: employee.id,
@@ -149,6 +172,7 @@ export function EmployeeAttendanceKiosk({
       exitTime: '',
       hoursWorked: 0,
       dailySalary: 0,
+      entrySignature,
     }
 
     startTransition(async () => {
@@ -159,6 +183,7 @@ export function EmployeeAttendanceKiosk({
         setKioskMode('check-out')
         setMessageType('success')
         setMessage('Entrada marcada correctamente')
+        entrySignaturePadRef.current?.clear()
         setTimeout(() => setMessage(''), 2000)
       } catch {
         setMessageType('error')
@@ -174,6 +199,12 @@ export function EmployeeAttendanceKiosk({
       return
     }
 
+    if (exitSignaturePadRef.current?.isEmpty()) {
+      setMessageType('error')
+      setMessage('Debes firmar antes de marcar salida')
+      return
+    }
+
     if (todayRecord.exitTime) {
       setMessageType('error')
       setMessage('Ya marcaste salida hoy')
@@ -183,12 +214,14 @@ export function EmployeeAttendanceKiosk({
     const timeStr = getTimeString()
     const hoursWorked = calculateHoursWorked(todayRecord.entryTime, timeStr)
     const dailySalary = calculateDailySalary(hoursWorked, employee.hourlyRate)
+    const exitSignature = exitSignaturePadRef.current?.toDataURL('image/png') ?? ''
 
     const updatedRecord: AttendanceRecord = {
       ...todayRecord,
       exitTime: timeStr,
       hoursWorked: Math.round(hoursWorked * 100) / 100,
       dailySalary: Math.round(dailySalary * 100) / 100,
+      exitSignature,
     }
 
     startTransition(async () => {
@@ -201,6 +234,7 @@ export function EmployeeAttendanceKiosk({
         setKioskMode('done')
         setMessageType('success')
         setMessage('Salida marcada correctamente')
+        exitSignaturePadRef.current?.clear()
         setTimeout(() => setMessage(''), 2000)
       } catch {
         setMessageType('error')
@@ -209,12 +243,89 @@ export function EmployeeAttendanceKiosk({
     })
   }
 
+  const missingEntrySignature = Boolean(
+    todayRecord?.entryTime && !todayRecord.entrySignature,
+  )
+  const missingExitSignature = Boolean(
+    todayRecord?.exitTime && !todayRecord.exitSignature,
+  )
+  const showEntrySignaturePad = kioskMode === 'check-in' || missingEntrySignature
+  const showExitSignaturePad = kioskMode === 'check-out' || missingExitSignature
+
+  const handleSaveEntrySignature = () => {
+    if (!employee || !todayRecord) return
+
+    if (entrySignaturePadRef.current?.isEmpty()) {
+      setMessageType('error')
+      setMessage('Debes firmar antes de guardar')
+      return
+    }
+
+    const entrySignature = entrySignaturePadRef.current?.toDataURL('image/png') ?? ''
+    const updatedRecord: AttendanceRecord = {
+      ...todayRecord,
+      entrySignature,
+    }
+
+    startTransition(async () => {
+      try {
+        const saved = await saveAttendanceRecordAction(updatedRecord)
+        setRecords((current) =>
+          current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        setTodayRecord(saved)
+        setMessageType('success')
+        setMessage('Firma de entrada guardada')
+        entrySignaturePadRef.current?.clear()
+        setTimeout(() => setMessage(''), 2000)
+      } catch {
+        setMessageType('error')
+        setMessage('No se pudo guardar la firma')
+      }
+    })
+  }
+
+  const handleSaveExitSignature = () => {
+    if (!employee || !todayRecord) return
+
+    if (exitSignaturePadRef.current?.isEmpty()) {
+      setMessageType('error')
+      setMessage('Debes firmar antes de guardar')
+      return
+    }
+
+    const exitSignature = exitSignaturePadRef.current?.toDataURL('image/png') ?? ''
+    const updatedRecord: AttendanceRecord = {
+      ...todayRecord,
+      exitSignature,
+    }
+
+    startTransition(async () => {
+      try {
+        const saved = await saveAttendanceRecordAction(updatedRecord)
+        setRecords((current) =>
+          current.map((item) => (item.id === saved.id ? saved : item)),
+        )
+        setTodayRecord(saved)
+        setMessageType('success')
+        setMessage('Firma de salida guardada')
+        exitSignaturePadRef.current?.clear()
+        setTimeout(() => setMessage(''), 2000)
+      } catch {
+        setMessageType('error')
+        setMessage('No se pudo guardar la firma')
+      }
+    })
+  }
+
   const handleReset = () => {
-    setPinInput('')
+    setSelectedEmployeeId('')
     setEmployeeId(null)
     setKioskMode('check-in')
     setMessage('')
     setTodayRecord(null)
+    entrySignaturePadRef.current?.clear()
+    exitSignaturePadRef.current?.clear()
   }
 
   return (
@@ -252,25 +363,40 @@ export function EmployeeAttendanceKiosk({
           <Card className="p-6 bg-card border-border shadow-sm">
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-foreground mb-2">
-                  <Lock size={16} className="inline mr-2" />
-                  Código o PIN del Empleado
+                <label
+                  htmlFor="employee-select"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  <User size={16} className="inline mr-2" />
+                  Selecciona tu nombre
                 </label>
-                <input
-                  type="password"
-                  placeholder="Ingresa tu PIN"
-                  value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchEmployee()}
-                  className="w-full px-4 py-3 border border-border rounded-sm bg-background text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary text-lg tracking-widest"
-                  autoFocus
-                />
+                {activeEmployees.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No hay empleados activos disponibles.
+                  </p>
+                ) : (
+                  <select
+                    id="employee-select"
+                    value={selectedEmployeeId}
+                    onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                    className="w-full px-4 py-3 border border-border rounded-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary text-base"
+                    autoFocus
+                  >
+                    <option value="">Elige un empleado...</option>
+                    {activeEmployees.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name} — {item.position}
+                      </option>
+                    ))}
+                  </select>
+                )}
               </div>
               <Button
-                onClick={handleSearchEmployee}
+                onClick={handleSelectEmployee}
+                disabled={activeEmployees.length === 0}
                 className="w-full bg-primary text-primary-foreground py-3 font-semibold text-lg shadow-sm hover:shadow-md"
               >
-                Validar
+                Continuar
               </Button>
             </div>
           </Card>
@@ -280,6 +406,60 @@ export function EmployeeAttendanceKiosk({
               <h2 className="text-2xl font-bold text-foreground text-center">{employee?.name}</h2>
               <p className="text-center text-muted-foreground mt-2">{employee?.position}</p>
             </Card>
+
+            {showEntrySignaturePad && (
+              <Card className="p-6 bg-card border-border mb-6 shadow-sm space-y-4">
+                <SignaturePad ref={entrySignaturePadRef} label="Firma de entrada" />
+                {missingEntrySignature && kioskMode === 'done' && (
+                  <Button
+                    onClick={handleSaveEntrySignature}
+                    disabled={isPending}
+                    className="w-full bg-primary text-primary-foreground py-3 font-semibold"
+                  >
+                    Guardar firma de entrada
+                  </Button>
+                )}
+              </Card>
+            )}
+
+            {showExitSignaturePad && (
+              <Card className="p-6 bg-card border-border mb-6 shadow-sm space-y-4">
+                <SignaturePad ref={exitSignaturePadRef} label="Firma de salida" />
+                {missingExitSignature && kioskMode === 'done' && (
+                  <Button
+                    onClick={handleSaveExitSignature}
+                    disabled={isPending}
+                    className="w-full bg-secondary text-secondary-foreground py-3 font-semibold"
+                  >
+                    Guardar firma de salida
+                  </Button>
+                )}
+              </Card>
+            )}
+
+            <div className="space-y-4 mb-6">
+              {kioskMode === 'check-in' && (
+                <Button
+                  onClick={handleMarkEntry}
+                  disabled={isPending}
+                  className="w-full bg-primary text-primary-foreground py-4 font-bold text-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                  <LogIn size={24} />
+                  Marcar Entrada
+                </Button>
+              )}
+
+              {kioskMode === 'check-out' && (
+                <Button
+                  onClick={handleMarkExit}
+                  disabled={isPending}
+                  className="w-full bg-secondary text-secondary-foreground py-4 font-bold text-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+                >
+                  <LogOut size={24} />
+                  Marcar Salida
+                </Button>
+              )}
+            </div>
 
             <Card className="p-6 bg-accent/20 border-border mb-6 shadow-sm">
               <div className="text-center">
@@ -313,30 +493,6 @@ export function EmployeeAttendanceKiosk({
               </div>
             </Card>
 
-            <div className="space-y-4 mb-6">
-              {kioskMode === 'check-in' && (
-                <Button
-                  onClick={handleMarkEntry}
-                  disabled={isPending}
-                  className="w-full bg-primary text-primary-foreground py-4 font-bold text-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                >
-                  <LogIn size={24} />
-                  Marcar Entrada
-                </Button>
-              )}
-
-              {kioskMode === 'check-out' && (
-                <Button
-                  onClick={handleMarkExit}
-                  disabled={isPending}
-                  className="w-full bg-secondary text-secondary-foreground py-4 font-bold text-xl shadow-md hover:shadow-lg flex items-center justify-center gap-2"
-                >
-                  <LogOut size={24} />
-                  Marcar Salida
-                </Button>
-              )}
-            </div>
-
             {todayRecord && (
               <Card className="p-4 bg-muted/20 border-border mb-6 shadow-sm">
                 <h3 className="text-sm font-semibold text-foreground mb-3">Resumen del día</h3>
@@ -359,6 +515,30 @@ export function EmployeeAttendanceKiosk({
                       <span className="text-foreground font-semibold">
                         {todayRecord.hoursWorked.toFixed(1)}h
                       </span>
+                    </div>
+                  )}
+                  {(todayRecord.entrySignature || todayRecord.exitSignature) && (
+                    <div className="pt-3 border-t border-border space-y-3">
+                      {todayRecord.entrySignature && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Firma de entrada</p>
+                          <img
+                            src={todayRecord.entrySignature}
+                            alt="Firma de entrada"
+                            className="h-16 w-full rounded-sm border border-border bg-background object-contain"
+                          />
+                        </div>
+                      )}
+                      {todayRecord.exitSignature && (
+                        <div>
+                          <p className="text-muted-foreground mb-1">Firma de salida</p>
+                          <img
+                            src={todayRecord.exitSignature}
+                            alt="Firma de salida"
+                            className="h-16 w-full rounded-sm border border-border bg-background object-contain"
+                          />
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

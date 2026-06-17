@@ -28,6 +28,8 @@ export interface ClofiAttendanceRecord {
   hours_worked: number
   daily_salary: number
   observations?: string
+  entry_signature?: string
+  exit_signature?: string
 }
 
 export const DEFAULT_CLOFI_SETTINGS: ClofiSettings = {
@@ -73,6 +75,8 @@ export function toAttendanceRecord(record: ClofiAttendanceRecord): AttendanceRec
     hoursWorked: record.hours_worked,
     dailySalary: record.daily_salary,
     observations: record.observations,
+    entrySignature: record.entry_signature,
+    exitSignature: record.exit_signature,
   }
 }
 
@@ -91,6 +95,8 @@ export function fromAttendanceRecord(record: AttendanceRecord): ClofiAttendanceR
     hours_worked: record.hoursWorked,
     daily_salary: record.dailySalary,
     observations: record.observations,
+    entry_signature: record.entrySignature,
+    exit_signature: record.exitSignature,
   }
 }
 

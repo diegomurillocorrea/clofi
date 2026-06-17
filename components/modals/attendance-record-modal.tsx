@@ -114,6 +114,8 @@ export function AttendanceRecordModal({
       hoursWorked: Math.round(hoursWorked * 100) / 100,
       dailySalary: Math.round(dailySalary * 100) / 100,
       observations: formData.observations || undefined,
+      entrySignature: record.entrySignature,
+      exitSignature: record.exitSignature,
     })
   }
 
@@ -211,6 +213,31 @@ export function AttendanceRecordModal({
               placeholder="Notas adicionales..."
             />
           </div>
+
+          {(record.entrySignature || record.exitSignature) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {record.entrySignature && (
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Firma de entrada</p>
+                  <img
+                    src={record.entrySignature}
+                    alt="Firma de entrada"
+                    className="h-24 w-full rounded-lg border border-border bg-background object-contain"
+                  />
+                </div>
+              )}
+              {record.exitSignature && (
+                <div>
+                  <p className="text-sm font-medium text-foreground mb-2">Firma de salida</p>
+                  <img
+                    src={record.exitSignature}
+                    alt="Firma de salida"
+                    className="h-24 w-full rounded-lg border border-border bg-background object-contain"
+                  />
+                </div>
+              )}
+            </div>
+          )}
 
           {formData.employeeId && formData.entryTime && formData.exitTime && previewHours > 0 && (
             <div className="p-4 bg-accent rounded-lg grid grid-cols-3 gap-4 text-sm">

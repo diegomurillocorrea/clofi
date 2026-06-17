@@ -22,6 +22,8 @@ export interface AttendanceRecord {
   hoursWorked: number
   dailySalary: number
   observations?: string
+  entrySignature?: string
+  exitSignature?: string
 }
 
 // Summary types
