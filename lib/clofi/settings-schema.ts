@@ -1,4 +1,5 @@
 import type { Employee, AttendanceRecord } from '@/lib/types'
+import { getLocalDateKey } from '@/lib/utils-custom'
 
 /** Datos de Clofi almacenados en organization_settings.settings.clofi */
 export interface ClofiSettings {
@@ -83,7 +84,7 @@ export function toAttendanceRecord(record: ClofiAttendanceRecord): AttendanceRec
 export function fromAttendanceRecord(record: AttendanceRecord): ClofiAttendanceRecord {
   const date =
     record.date instanceof Date
-      ? record.date.toISOString().split('T')[0]
+      ? getLocalDateKey(record.date)
       : String(record.date).split('T')[0]
 
   return {
@@ -91,7 +92,7 @@ export function fromAttendanceRecord(record: AttendanceRecord): ClofiAttendanceR
     employee_id: record.employeeId,
     date,
     entry_time: record.entryTime,
-    exit_time: record.exitTime,
+    exit_time: record.exitTime || '',
     hours_worked: record.hoursWorked,
     daily_salary: record.dailySalary,
     observations: record.observations,

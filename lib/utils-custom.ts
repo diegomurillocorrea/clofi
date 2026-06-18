@@ -57,6 +57,45 @@ export function formatDateShort(date: Date): string {
   return `${day}/${month}/${year}`
 }
 
+/** Local calendar date as YYYY-MM-DD (avoids UTC drift in attendance). */
+export function getLocalDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** Whether two dates fall on the same local calendar day. */
+export function isSameLocalDay(a: Date, b: Date): boolean {
+  return getLocalDateKey(a) === getLocalDateKey(b)
+}
+
+/** Whether an attendance record still has an open shift (no exit yet). */
+export function isOpenAttendanceShift(record: {
+  entryTime: string
+  exitTime: string
+}): boolean {
+  return Boolean(record.entryTime?.trim()) && !record.exitTime?.trim()
+}
+
+/**
+ * Elapsed seconds from a local HH:mm entry time until now.
+ */
+export function getElapsedSecondsSince(entryTime: string, now = new Date()): number {
+  const [entryHour, entryMin] = entryTime.split(':').map(Number)
+  const entryDate = new Date(now)
+  entryDate.setHours(entryHour, entryMin, 0, 0)
+  return Math.max(0, Math.floor((now.getTime() - entryDate.getTime()) / 1000))
+}
+
+/** Format seconds as HH:MM:SS for live shift timers. */
+export function formatElapsedDuration(totalSeconds: number): string {
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
 /**
  * Calculate hours worked between two times (HH:mm format)
  */
