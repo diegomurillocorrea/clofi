@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -80,9 +81,14 @@ export function AppSidebar() {
       >
         {/* Logo */}
         <div className="px-6 py-4 lg:pt-6 flex items-center gap-2">
-          <div className="w-8 h-8 bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-lg shadow-sm">
-            C
-          </div>
+          <Image
+            src="/clofi-logo.png"
+            alt="Clofi"
+            width={32}
+            height={32}
+            className="size-8 object-contain"
+            priority
+          />
           <span className="font-bold text-xl text-sidebar-foreground">Clofi</span>
         </div>
 

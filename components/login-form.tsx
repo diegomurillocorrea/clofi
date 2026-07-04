@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useState } from 'react'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -76,10 +77,15 @@ function LoginFormInner() {
     <div className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 py-8">
       <Card className="w-full max-w-md shadow-md">
         <CardHeader className="text-center">
-          <div className="mb-2 flex items-center justify-center gap-3" role="group" aria-label="Clofi">
-            <div className="flex size-12 items-center justify-center bg-primary text-lg font-bold text-primary-foreground shadow-sm">
-              C
-            </div>
+          <div className="mb-2 flex flex-col items-center justify-center gap-3" role="group" aria-label="Clofi">
+            <Image
+              src="/clofi-logo.png"
+              alt="Clofi"
+              width={160}
+              height={160}
+              className="size-40 object-contain"
+              priority
+            />
             <CardTitle className="text-3xl font-bold tracking-tight">Clofi</CardTitle>
           </div>
           <CardDescription>Inicia sesión para gestionar empleados y nómina</CardDescription>
