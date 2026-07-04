@@ -15,7 +15,10 @@ export function isPublicPath(pathname: string): boolean {
   return false
 }
 
-export function sanitizeNextPath(value: string | null, fallback = '/'): string {
+export function sanitizeNextPath(
+  value: string | null,
+  fallback = '/',
+): string {
   if (!value) {
     return fallback
   }

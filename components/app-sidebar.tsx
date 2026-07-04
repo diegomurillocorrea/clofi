@@ -43,12 +43,6 @@ const navItems = [
   },
 ]
 
-const employeeSection = {
-  label: 'Vista para Empleados',
-  href: '/marcar-asistencia',
-  icon: Clock,
-}
-
 export function AppSidebar() {
   const pathname = usePathname()
   const [isOpen, setIsOpen] = useState(false)
@@ -115,22 +109,6 @@ export function AppSidebar() {
             )
           })}
         </nav>
-
-        {/* Separator */}
-        <div className="px-4 py-3 border-t border-sidebar-border">
-          <Link
-            href={employeeSection.href}
-            className={cn(
-              'flex items-center gap-3 px-4 py-3 transition-colors font-medium text-sm',
-              pathname === employeeSection.href
-                ? 'bg-sidebar-primary text-sidebar-primary-foreground shadow-sm'
-                : 'text-sidebar-foreground hover:bg-sidebar-accent/30'
-            )}
-          >
-            <employeeSection.icon size={20} />
-            <span>{employeeSection.label}</span>
-          </Link>
-        </div>
 
         {/* Session */}
         <div className="px-4 py-4 border-t border-sidebar-border mt-auto">

@@ -3,6 +3,10 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import type { Database } from '@/lib/database.types'
 import { assertPublicSupabaseEnv, env } from '@/lib/env'
+import {
+  isVendedorOnlyUser,
+  VENDEDOR_ONLY_PATH,
+} from '@/lib/auth/roles'
 import { sanitizeNextPath } from '@/lib/auth/routes'
 
 export async function GET(request: Request) {
@@ -39,7 +43,16 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
-      return NextResponse.redirect(`${origin}${next}`)
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const destination =
+        user && (await isVendedorOnlyUser(user.id, user.email))
+          ? VENDEDOR_ONLY_PATH
+          : next
+
+      return NextResponse.redirect(`${origin}${destination}`)
     }
   }
 

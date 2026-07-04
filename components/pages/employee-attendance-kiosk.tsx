@@ -13,31 +13,62 @@ import {
   isOpenAttendanceShift,
   isSameLocalDay,
 } from '@/lib/utils-custom'
-import { Clock, PenLine, CheckCircle2, AlertCircle, User, Plus } from 'lucide-react'
+import { Clock, PenLine, CheckCircle2, AlertCircle, User, Plus, LogOut } from 'lucide-react'
 import { saveAttendanceRecordAction } from '@/app/actions/clofi'
+import { createClient } from '@/lib/supabase/client'
 
 type KioskMode = 'check-in' | 'check-out' | 'done'
 
 interface EmployeeAttendanceKioskProps {
   employees: Employee[]
   initialRecords: AttendanceRecord[]
+  /** When set, the kiosk is locked to this employee (logged-in Vendedor). */
+  sessionEmployee?: Employee | null
 }
 
 export function EmployeeAttendanceKiosk({
   employees,
   initialRecords,
+  sessionEmployee = null,
 }: EmployeeAttendanceKioskProps) {
+  const isLockedToSession = Boolean(sessionEmployee)
   const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('')
-  const [employeeId, setEmployeeId] = useState<string | null>(null)
+  const [employeeId, setEmployeeId] = useState<string | null>(
+    sessionEmployee?.id ?? null,
+  )
   const [kioskMode, setKioskMode] = useState<KioskMode>('check-in')
   const [message, setMessage] = useState('')
   const [messageType, setMessageType] = useState<'success' | 'error'>('success')
   const [wantsNewShift, setWantsNewShift] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const [sessionEmail, setSessionEmail] = useState<string | null>(
+    sessionEmployee?.email ?? null,
+  )
+  const [isSigningOut, setIsSigningOut] = useState(false)
   const entrySignaturePadRef = useRef<SignaturePadHandle>(null)
   const exitSignaturePadRef = useRef<SignaturePadHandle>(null)
   const exitPadRecordIdRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    if (sessionEmployee) {
+      setEmployeeId(sessionEmployee.id)
+      setSessionEmail(sessionEmployee.email ?? null)
+      return
+    }
+
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setSessionEmail(user?.email ?? null)
+    })
+  }, [sessionEmployee])
+
+  const handleSignOut = async () => {
+    setIsSigningOut(true)
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    window.location.href = '/login'
+  }
 
   const todayLabel = useMemo(() => {
     const date = new Date()
@@ -61,8 +92,9 @@ export function EmployeeAttendanceKiosk({
 
   const employee = useMemo(() => {
     if (!employeeId) return null
+    if (sessionEmployee?.id === employeeId) return sessionEmployee
     return employees.find((item) => item.id === employeeId) ?? null
-  }, [employeeId, employees])
+  }, [employeeId, employees, sessionEmployee])
 
   const todayRecords = useMemo(() => {
     if (!employeeId) return []
@@ -334,6 +366,9 @@ export function EmployeeAttendanceKiosk({
   }
 
   const handleReset = () => {
+    if (isLockedToSession) {
+      return
+    }
     setSelectedEmployeeId('')
     setEmployeeId(null)
     setKioskMode('check-in')
@@ -373,7 +408,22 @@ export function EmployeeAttendanceKiosk({
           </Card>
         )}
 
-        {!employeeId ? (
+        {sessionEmail && !sessionEmployee ? (
+          <Card className="p-6 bg-destructive/10 border-destructive/30 mb-6 shadow-sm">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="text-destructive shrink-0 mt-0.5" size={20} />
+              <div>
+                <p className="font-medium text-destructive">Cuenta no vinculada</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  No hay un empleado activo con el correo {sessionEmail}. Contacta a un
+                  administrador.
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!employeeId && !isLockedToSession ? (
           <Card className="p-6 bg-card border-border shadow-sm">
             <div className="space-y-4">
               <div>
@@ -414,7 +464,7 @@ export function EmployeeAttendanceKiosk({
               </Button>
             </div>
           </Card>
-        ) : (
+        ) : employeeId ? (
           <>
             <Card className="p-6 bg-card border-border mb-6 shadow-sm">
               <h2 className="text-2xl font-bold text-foreground text-center">{employee?.name}</h2>
@@ -609,15 +659,36 @@ export function EmployeeAttendanceKiosk({
               </Button>
             )}
 
-            <Button
-              onClick={handleReset}
-              variant="outline"
-              className="w-full border-border text-foreground hover:bg-muted"
-            >
-              Cambiar Empleado
-            </Button>
+            {!isLockedToSession ? (
+              <Button
+                onClick={handleReset}
+                variant="outline"
+                className="w-full border-border text-foreground hover:bg-muted"
+              >
+                Cambiar Empleado
+              </Button>
+            ) : null}
           </>
-        )}
+        ) : null}
+
+        {sessionEmail ? (
+          <div className="mt-8 space-y-3 text-center">
+            <p className="truncate text-xs text-muted-foreground" title={sessionEmail}>
+              {sessionEmail}
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full gap-2"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+            >
+              <LogOut size={16} />
+              {isSigningOut ? 'Cerrando sesión…' : 'Cerrar sesión'}
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   )

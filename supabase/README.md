@@ -7,15 +7,18 @@ El esquema completo está documentado en [`db.sql`](../db.sql) en la raíz del r
 
 | Funcionalidad Clofi | Tabla / campo en la DB |
 | ------------------- | ---------------------- |
-| Multi-tenant        | `public.organizations` |
-| Configuración       | `public.organization_settings` |
-| Empleados           | `organization_settings.settings.clofi.employees` (JSONB) |
+| Empleados           | `public.employees` (+ `public.roles` para el cargo) |
+| Tarifa horaria Clofi | `organization_settings.settings.clofi.payroll_rates` (JSONB) |
 | Asistencia          | `organization_settings.settings.clofi.attendance` (JSONB) |
 | Moneda (nómina Clofi) | Siempre **USD** (`CLOFI_PAYROLL_CURRENCY`) |
 
 No se crean tablas nuevas: los datos de asistencia viven en el JSONB `settings`
 de la organización, siguiendo el patrón del store (config flexible en
 `organization_settings`).
+
+Los empleados se leen directamente de `public.employees` (sin filtro por
+organización en env). Asistencia y tarifas usan la organización inferida desde
+los empleados existentes o la primera organización activa.
 
 ## Configuración requerida
 
@@ -24,10 +27,8 @@ En `.env.local`:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://wghbzpdtywcjahjfvshe.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
-CLOFI_ORGANIZATION_ID=<uuid-de-tu-organización>
+SUPABASE_SERVICE_ROLE_KEY=...
 ```
-
-Obtén el UUID en Supabase → Table Editor → `organizations`.
 
 ## Referencia del esquema
 

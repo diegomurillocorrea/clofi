@@ -1,11 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { getClofiOrganizationId } from '@/lib/env'
 import { CLOFI_PAYROLL_CURRENCY } from '@/lib/clofi/constants'
 import {
-  DEFAULT_CLOFI_SETTINGS,
+  emptyClofiSettings,
   parseClofiSettings,
   type ClofiSettings,
 } from '@/lib/clofi/settings-schema'
+import type { Json } from '@/lib/database.types'
 
 export class ClofiStoreError extends Error {
   constructor(
@@ -21,8 +21,51 @@ function getSupabase() {
   return createAdminClient()
 }
 
+/**
+ * Resolves an organization from the database (employees first, then active orgs).
+ * Used only for organization_settings (asistencia / tarifas), not for listing employees.
+ */
+export async function resolveClofiOrganizationId(): Promise<string> {
+  const supabase = getSupabase()
+
+  const { data: employee, error: employeeError } = await supabase
+    .from('employees')
+    .select('organization_id')
+    .limit(1)
+    .maybeSingle()
+
+  if (employeeError) {
+    throw new ClofiStoreError(employeeError.message, 'ORG_FETCH_FAILED')
+  }
+
+  if (employee?.organization_id) {
+    return employee.organization_id
+  }
+
+  const { data: organization, error: organizationError } = await supabase
+    .from('organizations')
+    .select('id')
+    .eq('is_active', true)
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (organizationError) {
+    throw new ClofiStoreError(organizationError.message, 'ORG_FETCH_FAILED')
+  }
+
+  if (!organization) {
+    throw new ClofiStoreError(
+      'No hay organizaciones activas en la base de datos',
+      'ORG_NOT_FOUND',
+    )
+  }
+
+  return organization.id
+}
+
 export async function getClofiSettings(): Promise<ClofiSettings> {
-  const organizationId = getClofiOrganizationId()
+  const organizationId = await resolveClofiOrganizationId()
   const supabase = getSupabase()
 
   const { data, error } = await supabase
@@ -36,14 +79,14 @@ export async function getClofiSettings(): Promise<ClofiSettings> {
   }
 
   if (!data) {
-    return { ...DEFAULT_CLOFI_SETTINGS }
+    return emptyClofiSettings()
   }
 
   return parseClofiSettings(data.settings)
 }
 
 export async function saveClofiSettings(clofi: ClofiSettings): Promise<void> {
-  const organizationId = getClofiOrganizationId()
+  const organizationId = await resolveClofiOrganizationId()
   const supabase = getSupabase()
 
   const { data: existing, error: fetchError } = await supabase
@@ -64,7 +107,7 @@ export async function saveClofiSettings(clofi: ClofiSettings): Promise<void> {
   const nextSettings = {
     ...currentSettings,
     clofi,
-  }
+  } as unknown as Json
 
   if (existing) {
     const { error } = await supabase

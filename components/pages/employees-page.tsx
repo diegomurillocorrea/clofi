@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { Employee } from '@/lib/types'
-import { formatCurrency, formatHourlyRate } from '@/lib/utils-custom'
+import type { Employee } from '@/lib/types'
+import { formatHourlyRate } from '@/lib/utils-custom'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plus, Edit2, Trash2, CheckCircle, Circle } from 'lucide-react'
@@ -107,7 +107,7 @@ export function EmployeesPage({ initialEmployees }: EmployeesPageProps) {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Empleados</h1>
           <p className="text-muted-foreground mt-1">
-            Gestiona el registro de empleados ({activeCount} activos)
+            Gestiona el personal ({activeCount} activos · {employees.length} total)
           </p>
         </div>
         <Button
@@ -128,8 +128,8 @@ export function EmployeesPage({ initialEmployees }: EmployeesPageProps) {
 
       <Card className="p-6 bg-card border-border overflow-hidden">
         {employees.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No hay empleados registrados</p>
+          <div className="text-center py-8 rounded-lg border border-dashed border-border">
+            <p className="text-muted-foreground text-sm">No hay empleados registrados</p>
           </div>
         ) : (
           <div className="overflow-x-auto">

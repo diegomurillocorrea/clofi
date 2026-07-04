@@ -25,13 +25,3 @@ export function getServiceRoleKey(): string {
   }
   return value
 }
-
-export function getClofiOrganizationId(): string {
-  const id = process.env.CLOFI_ORGANIZATION_ID
-  if (!id) {
-    throw new Error(
-      '❌ Missing CLOFI_ORGANIZATION_ID — copia el UUID de public.organizations en .env.local',
-    )
-  }
-  return id
-}

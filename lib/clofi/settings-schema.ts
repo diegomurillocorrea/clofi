@@ -1,23 +1,14 @@
-import type { Employee, AttendanceRecord } from '@/lib/types'
+import type { AttendanceRecord } from '@/lib/types'
 import { getLocalDateKey } from '@/lib/utils-custom'
 
-/** Datos de Clofi almacenados en organization_settings.settings.clofi */
+/**
+ * Datos de Clofi en organization_settings.settings.clofi.
+ * Empleados viven en public.employees; aquí solo asistencia y tarifas Clofi.
+ */
 export interface ClofiSettings {
-  employees: ClofiEmployeeRecord[]
   attendance: ClofiAttendanceRecord[]
-}
-
-export interface ClofiEmployeeRecord {
-  id: string
-  name: string
-  position: string
-  phone: string
-  email?: string
-  hourly_rate: number
-  status: 'active' | 'inactive'
-  start_date: string
-  /** Vinculo opcional con organization_members.id */
-  member_id?: string | null
+  /** Tarifa horaria (USD) por public.employees.id */
+  payroll_rates: Record<string, number>
 }
 
 export interface ClofiAttendanceRecord {
@@ -34,36 +25,13 @@ export interface ClofiAttendanceRecord {
 }
 
 export const DEFAULT_CLOFI_SETTINGS: ClofiSettings = {
-  employees: [],
   attendance: [],
+  payroll_rates: {},
 }
 
-export function toEmployee(record: ClofiEmployeeRecord): Employee {
-  return {
-    id: record.id,
-    name: record.name,
-    position: record.position,
-    phone: record.phone,
-    email: record.email,
-    hourlyRate: record.hourly_rate,
-    status: record.status,
-    startDate: new Date(record.start_date),
-    memberId: record.member_id ?? undefined,
-  }
-}
-
-export function fromEmployee(employee: Employee): ClofiEmployeeRecord {
-  return {
-    id: employee.id,
-    name: employee.name,
-    position: employee.position,
-    phone: employee.phone,
-    email: employee.email,
-    hourly_rate: employee.hourlyRate,
-    status: employee.status,
-    start_date: employee.startDate.toISOString().split('T')[0],
-    member_id: employee.memberId ?? null,
-  }
+/** Fresh settings object (never share references with DEFAULT_CLOFI_SETTINGS). */
+export function emptyClofiSettings(): ClofiSettings {
+  return { attendance: [], payroll_rates: {} }
 }
 
 export function toAttendanceRecord(record: ClofiAttendanceRecord): AttendanceRecord {
@@ -101,22 +69,54 @@ export function fromAttendanceRecord(record: AttendanceRecord): ClofiAttendanceR
   }
 }
 
+function parsePayrollRates(raw: unknown): Record<string, number> {
+  const rates: Record<string, number> = {}
+
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [employeeId, value] of Object.entries(raw as Record<string, unknown>)) {
+      const rate = typeof value === 'number' ? value : Number(value)
+      if (Number.isFinite(rate) && rate >= 0) {
+        rates[employeeId] = rate
+      }
+    }
+  }
+
+  return rates
+}
+
 export function parseClofiSettings(settings: unknown): ClofiSettings {
   if (!settings || typeof settings !== 'object') {
-    return { ...DEFAULT_CLOFI_SETTINGS }
+    return emptyClofiSettings()
   }
 
   const root = settings as Record<string, unknown>
   const clofi = root.clofi
 
   if (!clofi || typeof clofi !== 'object') {
-    return { ...DEFAULT_CLOFI_SETTINGS }
+    return emptyClofiSettings()
   }
 
-  const data = clofi as Partial<ClofiSettings>
+  const data = clofi as Record<string, unknown>
+  const payrollRates = parsePayrollRates(data.payroll_rates)
+
+  // Legacy: tarifas que vivían en settings.clofi.employees
+  if (Array.isArray(data.employees)) {
+    for (const item of data.employees) {
+      if (!item || typeof item !== 'object') continue
+      const row = item as Record<string, unknown>
+      const id = typeof row.id === 'string' ? row.id : null
+      const rate =
+        typeof row.hourly_rate === 'number' ? row.hourly_rate : Number(row.hourly_rate)
+      if (id && Number.isFinite(rate) && payrollRates[id] === undefined) {
+        payrollRates[id] = rate
+      }
+    }
+  }
 
   return {
-    employees: Array.isArray(data.employees) ? data.employees : [],
-    attendance: Array.isArray(data.attendance) ? data.attendance : [],
+    attendance: Array.isArray(data.attendance)
+      ? [...(data.attendance as ClofiAttendanceRecord[])]
+      : [],
+    payroll_rates: payrollRates,
   }
 }

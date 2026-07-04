@@ -1,15 +1,18 @@
-// Employee type (dominio de la app; persistido en organization_settings.settings.clofi)
+// Employee type (dominio de la app; fuente: public.employees)
 export interface Employee {
   id: string
   name: string
+  /** Nombre del rol en public.roles */
   position: string
   phone: string
   email?: string
+  /** Tarifa Clofi (USD), en organization_settings.settings.clofi.payroll_rates */
   hourlyRate: number
   status: 'active' | 'inactive'
+  /** public.employees.created_at */
   startDate: Date
-  /** Vinculo opcional con organization_members.id en la DB del store */
-  memberId?: string
+  /** public.employees.role_id */
+  roleId?: string
 }
 
 // Attendance record type

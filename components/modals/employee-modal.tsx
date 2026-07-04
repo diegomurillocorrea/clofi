@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Employee } from '@/lib/types'
+import type { Employee } from '@/lib/types'
 import { roundHourlyRate } from '@/lib/utils-custom'
 import { Button } from '@/components/ui/button'
 import { X } from 'lucide-react'
@@ -35,7 +35,7 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
       hourlyRate: 0,
       status: 'active',
       startDate: new Date(),
-    }
+    },
   )
 
   const [hourlyRateInput, setHourlyRateInput] = useState(() =>
@@ -44,29 +44,27 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
 
     if (name === 'hourlyRate') {
       setHourlyRateInput(value)
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
         hourlyRate: parseHourlyRateInput(value),
       }))
     } else {
-      setFormData(prev => ({
+      setFormData((prev) => ({
         ...prev,
-        [name]:
-          name === 'startDate' ? new Date(value) :
-          value,
+        [name]: value,
       }))
     }
 
     if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev }
-        delete newErrors[name]
-        return newErrors
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next[name]
+        return next
       })
     }
   }
@@ -76,7 +74,6 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
     const hourlyRate = parseHourlyRateInput(hourlyRateInput)
 
     if (!formData.name.trim()) newErrors.name = 'El nombre es requerido'
-    if (!formData.position.trim()) newErrors.position = 'El cargo es requerido'
     if (!formData.phone.trim()) newErrors.phone = 'El teléfono es requerido'
     if (hourlyRate <= 0) newErrors.hourlyRate = 'La tarifa debe ser mayor a 0'
 
@@ -97,7 +94,6 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-lg shadow-lg max-w-md w-full border border-border">
-        {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-border">
           <h2 className="text-xl font-bold text-foreground">
             {employee ? 'Editar Empleado' : 'Nuevo Empleado'}
@@ -110,7 +106,6 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
           </button>
         </div>
 
-        {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
@@ -129,21 +124,6 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
 
           <div>
             <label className="block text-sm font-medium text-foreground mb-1">
-              Cargo/Puesto *
-            </label>
-            <input
-              type="text"
-              name="position"
-              value={formData.position}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              placeholder="Ej: Desarrollador"
-            />
-            {errors.position && <p className="text-red-600 text-xs mt-1">{errors.position}</p>}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
               Teléfono *
             </label>
             <input
@@ -152,7 +132,7 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
               value={formData.phone}
               onChange={handleChange}
               className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              placeholder="Ej: +1-234-567-8900"
+              placeholder="Ej: +503 7000 0000"
             />
             {errors.phone && <p className="text-red-600 text-xs mt-1">{errors.phone}</p>}
           </div>
@@ -190,20 +170,6 @@ export function EmployeeModal({ employee, onSave, onClose }: EmployeeModalProps)
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
-              Fecha de Ingreso
-            </label>
-            <input
-              type="date"
-              name="startDate"
-              value={formData.startDate.toISOString().split('T')[0]}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-            />
-          </div>
-
-          {/* Buttons */}
           <div className="flex gap-3 pt-4">
             <Button
               type="button"

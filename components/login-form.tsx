@@ -11,7 +11,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { sanitizeNextPath } from '@/lib/auth/routes'
+import { resolvePostLoginPath } from '@/app/actions/auth'
 
 function safeDecodeURIComponent(value: string) {
   try {
@@ -64,7 +64,7 @@ function LoginFormInner() {
       return
     }
 
-    const redirectTo = sanitizeNextPath(searchParams.get('next'))
+    const redirectTo = await resolvePostLoginPath(searchParams.get('next'))
     router.refresh()
     router.push(redirectTo)
   }
