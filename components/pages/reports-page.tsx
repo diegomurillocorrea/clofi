@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from 'react'
 import { AttendanceRecord, Employee, PayrollReport } from '@/lib/types'
-import { formatCurrency, formatDateShort, formatHourlyRate } from '@/lib/utils-custom'
+import {
+  formatCurrency,
+  formatDateShort,
+  formatHourlyRate,
+  getLocalDateKey,
+  isLocalDateKeyInRange,
+  parseLocalDateKey,
+} from '@/lib/utils-custom'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { BarChart3, Download, Printer } from 'lucide-react'
@@ -13,12 +20,15 @@ interface ReportsPageProps {
 }
 
 export function ReportsPage({ employees, attendanceRecords }: ReportsPageProps) {
-  const [filters, setFilters] = useState({
-    employeeId: '',
-    startDate: new Date(new Date().setDate(new Date().getDate() - 30))
-      .toISOString()
-      .split('T')[0],
-    endDate: new Date().toISOString().split('T')[0],
+  const [filters, setFilters] = useState(() => {
+    const today = new Date()
+    const thirtyDaysAgo = new Date(today)
+    thirtyDaysAgo.setDate(today.getDate() - 30)
+    return {
+      employeeId: '',
+      startDate: getLocalDateKey(thirtyDaysAgo),
+      endDate: getLocalDateKey(today),
+    }
   })
 
   const [report, setReport] = useState<PayrollReport | null>(null)
@@ -34,15 +44,17 @@ export function ReportsPage({ employees, attendanceRecords }: ReportsPageProps) 
     const employee = employees.find((e) => e.id === filters.employeeId)
     if (!employee) return
 
-    const startDate = new Date(filters.startDate)
-    startDate.setHours(0, 0, 0, 0)
-    const endDate = new Date(filters.endDate)
-    endDate.setHours(23, 59, 59, 999)
+    // Local calendar bounds: 00:00 of start day through 23:59:59.999 of end day
+    const startDate = parseLocalDateKey(filters.startDate, 'start')
+    const endDate = parseLocalDateKey(filters.endDate, 'end')
 
     const recordsInRange = attendanceRecords.filter((record) => {
       if (record.employeeId !== filters.employeeId) return false
-      const recordDate = new Date(record.date)
-      return recordDate >= startDate && recordDate <= endDate
+      return isLocalDateKeyInRange(
+        getLocalDateKey(new Date(record.date)),
+        filters.startDate,
+        filters.endDate,
+      )
     })
 
     const totalHours = recordsInRange.reduce((sum, r) => sum + r.hoursWorked, 0)

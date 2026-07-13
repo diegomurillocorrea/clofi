@@ -65,6 +65,30 @@ export function getLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * Parse a YYYY-MM-DD string as a local calendar date.
+ * Avoids `new Date("YYYY-MM-DD")`, which is interpreted as UTC midnight.
+ */
+export function parseLocalDateKey(
+  dateKey: string,
+  boundary: 'start' | 'end' = 'start',
+): Date {
+  const [year, month, day] = dateKey.split('-').map(Number)
+  if (boundary === 'end') {
+    return new Date(year, month - 1, day, 23, 59, 59, 999)
+  }
+  return new Date(year, month - 1, day, 0, 0, 0, 0)
+}
+
+/** Whether a local date key falls within an inclusive YYYY-MM-DD range. */
+export function isLocalDateKeyInRange(
+  dateKey: string,
+  startDateKey: string,
+  endDateKey: string,
+): boolean {
+  return dateKey >= startDateKey && dateKey <= endDateKey
+}
+
 /** Whether two dates fall on the same local calendar day. */
 export function isSameLocalDay(a: Date, b: Date): boolean {
   return getLocalDateKey(a) === getLocalDateKey(b)

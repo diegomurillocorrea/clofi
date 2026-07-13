@@ -2,10 +2,10 @@
 
 import { useMemo, useState, useTransition } from 'react'
 import { AttendanceRecord, Employee } from '@/lib/types'
-import { formatCurrency, formatDateShort } from '@/lib/utils-custom'
+import { formatCurrency, formatDateShort, getLocalDateKey } from '@/lib/utils-custom'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Trash2, Filter, Edit2 } from 'lucide-react'
+import { Trash2, Edit2, X } from 'lucide-react'
 import { DeleteConfirmModal } from '@/components/modals/delete-confirm-modal'
 import { AttendanceRecordModal } from '@/components/modals/attendance-record-modal'
 import { deleteAttendanceRecordAction, saveAttendanceRecordAction } from '@/app/actions/clofi'
@@ -15,15 +15,36 @@ interface HistoryPageProps {
   initialRecords: AttendanceRecord[]
 }
 
+const emptyFilters = {
+  employeeId: '',
+  date: '',
+  entryTime: '',
+  exitTime: '',
+  hours: '',
+  salary: '',
+}
+
+type ColumnFilters = typeof emptyFilters
+
+function matchesNumericFilter(value: number, filter: string, decimals = 1) {
+  const trimmed = filter.trim()
+  if (!trimmed) return true
+
+  const normalizedValue = value.toFixed(decimals)
+  if (normalizedValue.includes(trimmed)) return true
+
+  const parsed = Number(trimmed.replace(',', '.').replace(/[^\d.-]/g, ''))
+  if (Number.isNaN(parsed)) return false
+
+  return Math.abs(value - parsed) < 0.01
+}
+
+const filterInputClassName =
+  'mt-2 w-full min-w-[7rem] rounded-md border border-border bg-background px-2 py-1.5 text-xs font-normal text-foreground focus:outline-none focus:ring-2 focus:ring-primary'
+
 export function HistoryPage({ initialEmployees, initialRecords }: HistoryPageProps) {
   const [records, setRecords] = useState<AttendanceRecord[]>(initialRecords)
-  const [filters, setFilters] = useState({
-    employeeId: '',
-    startDate: '',
-    endDate: '',
-    status: '',
-  })
-  const [showFilters, setShowFilters] = useState(false)
+  const [filters, setFilters] = useState<ColumnFilters>(emptyFilters)
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; id?: string }>({
     show: false,
   })
@@ -31,33 +52,31 @@ export function HistoryPage({ initialEmployees, initialRecords }: HistoryPagePro
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
 
+  const hasActiveFilters = Object.values(filters).some((value) => value !== '')
+
   const filteredRecords = useMemo(() => {
     return records.filter((record) => {
       if (filters.employeeId && record.employeeId !== filters.employeeId) return false
 
-      if (filters.startDate) {
-        const startDate = new Date(filters.startDate)
-        startDate.setHours(0, 0, 0, 0)
-        const recordDate = new Date(record.date)
-        recordDate.setHours(0, 0, 0, 0)
-        if (recordDate < startDate) return false
+      if (filters.date && getLocalDateKey(new Date(record.date)) !== filters.date) {
+        return false
       }
 
-      if (filters.endDate) {
-        const endDate = new Date(filters.endDate)
-        endDate.setHours(23, 59, 59, 999)
-        const recordDate = new Date(record.date)
-        if (recordDate > endDate) return false
+      if (filters.entryTime && !record.entryTime.includes(filters.entryTime.trim())) {
+        return false
       }
 
-      if (filters.status && filters.status === 'active') {
-        const employee = initialEmployees.find((e) => e.id === record.employeeId)
-        if (employee?.status !== 'active') return false
+      if (filters.exitTime) {
+        const exitTime = record.exitTime?.trim() || ''
+        if (!exitTime.includes(filters.exitTime.trim())) return false
       }
+
+      if (!matchesNumericFilter(record.hoursWorked, filters.hours, 1)) return false
+      if (!matchesNumericFilter(record.dailySalary, filters.salary, 2)) return false
 
       return true
     })
-  }, [records, filters, initialEmployees])
+  }, [records, filters])
 
   const handleFilterChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target
@@ -99,12 +118,7 @@ export function HistoryPage({ initialEmployees, initialRecords }: HistoryPagePro
   }
 
   const resetFilters = () => {
-    setFilters({
-      employeeId: '',
-      startDate: '',
-      endDate: '',
-      status: '',
-    })
+    setFilters(emptyFilters)
   }
 
   const totalHours = filteredRecords.reduce((sum, r) => sum + r.hoursWorked, 0)
@@ -119,87 +133,20 @@ export function HistoryPage({ initialEmployees, initialRecords }: HistoryPagePro
             Visualiza y administra todos los registros de asistencia
           </p>
         </div>
-        <Button
-          onClick={() => setShowFilters(!showFilters)}
-          className="bg-primary text-primary-foreground hover:bg-primary/90 w-full md:w-auto"
-        >
-          <Filter size={20} className="mr-2" />
-          Filtros
-        </Button>
+        {hasActiveFilters && (
+          <Button
+            onClick={resetFilters}
+            className="bg-accent text-accent-foreground hover:bg-accent/80 w-full md:w-auto"
+          >
+            <X size={18} className="mr-2" />
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       {error && (
         <Card className="p-4 border-destructive/30 bg-destructive/10 text-destructive text-sm">
           {error}
-        </Card>
-      )}
-
-      {showFilters && (
-        <Card className="p-6 bg-card border-border">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Empleado</label>
-              <select
-                name="employeeId"
-                value={filters.employeeId}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              >
-                <option value="">Todos los empleados</option>
-                {initialEmployees.map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">
-                Estado del Empleado
-              </label>
-              <select
-                name="status"
-                value={filters.status}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              >
-                <option value="">Todos</option>
-                <option value="active">Activos</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Fecha Inicio</label>
-              <input
-                type="date"
-                name="startDate"
-                value={filters.startDate}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1">Fecha Fin</label>
-              <input
-                type="date"
-                name="endDate"
-                value={filters.endDate}
-                onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary bg-background text-foreground"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-4">
-            <Button
-              onClick={resetFilters}
-              className="bg-accent text-accent-foreground hover:bg-accent/80"
-            >
-              Limpiar Filtros
-            </Button>
-          </div>
         </Card>
       )}
 
@@ -215,28 +162,117 @@ export function HistoryPage({ initialEmployees, initialRecords }: HistoryPagePro
       </div>
 
       <Card className="p-6 bg-card border-border overflow-hidden">
-        {filteredRecords.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No hay registros que coincidan con los filtros</p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Empleado</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground hidden lg:table-cell">
-                    Fecha
-                  </th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Entrada</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Salida</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Horas</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Salario</th>
-                  <th className="text-left py-3 px-4 font-semibold text-foreground">Acciones</th>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border align-bottom">
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Empleado</span>
+                  <select
+                    name="employeeId"
+                    value={filters.employeeId}
+                    onChange={handleFilterChange}
+                    aria-label="Filtrar por empleado"
+                    className={filterInputClassName}
+                  >
+                    <option value="">Todos</option>
+                    {initialEmployees.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.name}
+                      </option>
+                    ))}
+                  </select>
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground hidden lg:table-cell">
+                  <span className="block">Fecha</span>
+                  <input
+                    type="date"
+                    name="date"
+                    value={filters.date}
+                    onChange={handleFilterChange}
+                    aria-label="Filtrar por fecha"
+                    className={filterInputClassName}
+                  />
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Entrada</span>
+                  <input
+                    type="time"
+                    name="entryTime"
+                    value={filters.entryTime}
+                    onChange={handleFilterChange}
+                    aria-label="Filtrar por hora de entrada"
+                    className={filterInputClassName}
+                  />
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Salida</span>
+                  <input
+                    type="time"
+                    name="exitTime"
+                    value={filters.exitTime}
+                    onChange={handleFilterChange}
+                    aria-label="Filtrar por hora de salida"
+                    className={filterInputClassName}
+                  />
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Horas</span>
+                  <input
+                    type="text"
+                    name="hours"
+                    value={filters.hours}
+                    onChange={handleFilterChange}
+                    placeholder="Ej. 9"
+                    inputMode="decimal"
+                    aria-label="Filtrar por horas"
+                    className={filterInputClassName}
+                  />
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Salario</span>
+                  <input
+                    type="text"
+                    name="salary"
+                    value={filters.salary}
+                    onChange={handleFilterChange}
+                    placeholder="Ej. 12.50"
+                    inputMode="decimal"
+                    aria-label="Filtrar por salario"
+                    className={filterInputClassName}
+                  />
+                </th>
+                <th className="text-left py-3 px-4 font-semibold text-foreground">
+                  <span className="block">Acciones</span>
+                  {hasActiveFilters ? (
+                    <button
+                      type="button"
+                      onClick={resetFilters}
+                      className={`${filterInputClassName} text-left text-muted-foreground hover:text-foreground`}
+                      title="Limpiar filtros"
+                    >
+                      Limpiar
+                    </button>
+                  ) : (
+                    <div className="mt-2 h-[30px]" aria-hidden />
+                  )}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredRecords.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="py-12 px-4 text-center text-muted-foreground"
+                  >
+                    {records.length === 0
+                      ? 'No hay registros de asistencia'
+                      : 'No hay registros que coincidan con los filtros'}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredRecords.map((record) => {
+              ) : (
+                filteredRecords.map((record) => {
                   const employee = initialEmployees.find((e) => e.id === record.employeeId)
                   return (
                     <tr
@@ -281,11 +317,11 @@ export function HistoryPage({ initialEmployees, initialRecords }: HistoryPagePro
                       </td>
                     </tr>
                   )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
       </Card>
 
       {deleteConfirm.show && (
